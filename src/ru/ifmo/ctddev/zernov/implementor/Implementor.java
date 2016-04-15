@@ -12,15 +12,9 @@ import java.nio.charset.Charset;
 import java.nio.file.*;
 import java.util.*;
 import java.util.jar.JarOutputStream;
+import java.util.jar.Manifest;
 import java.util.zip.ZipEntry;
 
-/**
- * Creator of compiling inheritor (or jar file including compiled .class file of this inheritor) and
- * save it to <tt>path</tt> with <tt>Impl</tt> suffix
- * @see info.kgeorgiy.java.advanced.implementor.Impler
- * @see info.kgeorgiy.java.advanced.implementor.JarImpler
- * @see info.kgeorgiy.java.advanced.implementor.ImplerException
- */
 public class Implementor implements Impler, JarImpler {
     private Class<?> token;
     private BufferedWriter out;
@@ -34,6 +28,8 @@ public class Implementor implements Impler, JarImpler {
      * @param token type token to create implementation for.
      * @param root root directory.
      * @throws info.kgeorgiy.java.advanced.implementor.ImplerException If inheritor can't be create
+     * @see info.kgeorgiy.java.advanced.implementor.Impler
+     * @see info.kgeorgiy.java.advanced.implementor.ImplerException
      */
     @Override
     public void implement(Class<?> token, Path root) throws ImplerException {
@@ -41,6 +37,7 @@ public class Implementor implements Impler, JarImpler {
                 token.getPackage().getName().replace('.', File.separatorChar))
                 + File.separatorChar + token.getSimpleName() + "Impl.java");
         this.token = token;
+        System.out.println(root+" "+path);
         if (!token.isInterface()) {
             inheritanceCheck(token);
         }
@@ -83,6 +80,7 @@ public class Implementor implements Impler, JarImpler {
                     }
                 }
                 if (i == tokenConstructors.length) {
+                    Files.delete(path);
                     throw new ImplerException("No non-private constructors in super class");
                 }
             }
@@ -134,7 +132,7 @@ public class Implementor implements Impler, JarImpler {
             JavaCompiler javac = ToolProvider.getSystemJavaCompiler();
             javac.run(null,null,null,path.toString());
         } catch (Exception e) {
-            e.printStackTrace();
+            throw new ImplerException();
         }
         try {
             OutputStream subStream = Files.newOutputStream(jarFile);
@@ -154,7 +152,7 @@ public class Implementor implements Impler, JarImpler {
             jarOutputStream.close();
             subStream.close();
         } catch (IOException e) {
-            e.printStackTrace();
+            throw new ImplerException();
         }
     }
 
@@ -217,12 +215,7 @@ public class Implementor implements Impler, JarImpler {
      */
     private void putMethods(HashMap<String, Method> tokenMethods, Method[] methodsArray) {
         for (Method method : methodsArray) {
-            String hash = method.getName() + Arrays.hashCode(method.getParameterTypes());
-            while (tokenMethods.containsKey(hash) && !(tokenMethods.get(hash).getName().equals(method.getName())
-                    && Arrays.equals(tokenMethods.get(hash).getParameterTypes(),(method.getParameterTypes())))){
-                hash = hash + new Random().nextInt();
-            }
-            tokenMethods.put(hash, method);
+            tokenMethods.put(method.getName() + Arrays.hashCode(method.getParameterTypes()), method);
         }
     }
 
