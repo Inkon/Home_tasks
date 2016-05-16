@@ -1,5 +1,4 @@
 #/bin/bash
-
 jar=$1
 libs=/home/gleb/IdeaProjects/java-advanced-2016/lib/*:/home/gleb/IdeaProjects/java-advanced-2016/artifacts/$1Test.jar
 out_folder=/home/gleb/IdeaProjects/JavaAdvanced/out/production/JavaAdvanced/

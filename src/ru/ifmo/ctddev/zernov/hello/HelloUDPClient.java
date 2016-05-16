@@ -1,10 +1,11 @@
-package ru.ifmo.ctddev.zernov.network;
+package ru.ifmo.ctddev.zernov.hello;
 
 import info.kgeorgiy.java.advanced.hello.HelloClient;
 
 import java.io.IOException;
 import java.net.*;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CountDownLatch;
@@ -22,7 +23,7 @@ public class HelloUDPClient implements HelloClient {
     private ConcurrentMap<Integer, String> map = new ConcurrentHashMap<>();
     private ReentrantLock lock = new ReentrantLock();
     private Condition[] conditions;
-    private final static Charset CHARSET = Charset.forName("UTF-8");
+    private final static Charset CHARSET = StandardCharsets.UTF_8;
 
     @Override
     public void start(String host, int port, String prefix, int requests, int threads) {
@@ -71,17 +72,26 @@ public class HelloUDPClient implements HelloClient {
 
         private void receive() {
             for (int j = 0; j < requests; j++) {
-                makeRequest(num, j);
+
+                String sentString = prefix + num + "_" + j;
+                try {
+                    byte[] receiveData = new byte[clientSocket.getReceiveBufferSize()];
+                    DatagramPacket receive = new DatagramPacket(receiveData, receiveData.length);
+                    byte[] sendData = sentString.getBytes();
+                    DatagramPacket sending = new DatagramPacket(sendData, sendData.length, inetAddress, port);
+                    makeRequest(sentString,receive, sending);
+                } catch (IOException e){
+                    j--;
+                    //retry sending
+                }
             }
             latch.countDown();
         }
 
-        private void makeRequest(int num, int j) {
-
+        private void makeRequest(String sentString, DatagramPacket receive, DatagramPacket sending) {
             try {
-                String sentString = prefix + "" + (num) + "_" + j;
-                sendRequest(sentString);
-                receiveData();
+                sendRequest(sending);
+                receiveData(receive);
                 String receivedString = null;
                 if (map.containsKey(num)){
                     receivedString = map.remove(num);
@@ -89,7 +99,7 @@ public class HelloUDPClient implements HelloClient {
                     lock.lock();
                     try{
                         conditions[num].await(TIMEOUT, TimeUnit.MILLISECONDS);
-                    } catch (InterruptedException ignored){
+                    } catch (InterruptedException ignored) {
                         //send one more request instead of waiting
                     } finally {
                         lock.unlock();
@@ -99,17 +109,16 @@ public class HelloUDPClient implements HelloClient {
                     receivedString = map.remove(num);
                 }
                 if (receivedString == null || !receivedString.equals("Hello, " + sentString)) {
-                    makeRequest(num, j);
+                    makeRequest(sentString, receive, sending);
                 }
             } catch (IOException e){
-                makeRequest(num, j);
+                makeRequest(sentString, receive, sending);
                 //can't send ot receive data using current port, retrying
             }
         }
 
-        private void receiveData() throws IOException{
-            byte[] receiveData = new byte[1024];
-            DatagramPacket receive = new DatagramPacket(receiveData, receiveData.length);
+        private void receiveData(DatagramPacket receive) throws IOException{
+
             try {
                 clientSocket.receive(receive);
                 String received = new String(receive.getData(), receive.getOffset(), receive.getLength(), CHARSET);
@@ -138,9 +147,8 @@ public class HelloUDPClient implements HelloClient {
             }
         }
 
-        private void sendRequest(String sendedString) throws IOException {
-            byte[] sendData = (sendedString).getBytes();
-            DatagramPacket sending = new DatagramPacket(sendData, sendData.length, inetAddress, port);
+        private void sendRequest(DatagramPacket sending) throws IOException {
+
             clientSocket.send(sending);
         }
     }

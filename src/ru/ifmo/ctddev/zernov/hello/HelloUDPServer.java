@@ -1,4 +1,4 @@
-package ru.ifmo.ctddev.zernov.network;
+package ru.ifmo.ctddev.zernov.hello;
 
 import info.kgeorgiy.java.advanced.hello.HelloServer;
 
@@ -40,7 +40,8 @@ public class HelloUDPServer implements HelloServer {
                     int port = packet.getPort();
                     DatagramPacket send = new DatagramPacket(ans, ans.length, inetAddress, port);
                     socket.send(send);
-                }  catch (IOException e){
+                }  catch (IOException ignored){
+                    //retry receive
                 }
             }
         }
@@ -51,13 +52,8 @@ public class HelloUDPServer implements HelloServer {
     @Override
     public void close() {
         socket.close();
-        for (int i = 0; i < threads.length; i++){
-            threads[i].interrupt();
-            try {
-                threads[i].join();
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
+        for (Thread thread : threads) {
+            thread.interrupt();
         }
     }
 }
